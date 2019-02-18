@@ -57,8 +57,11 @@ def interpolate_data(data, step):
 
     # Create empty dataframe with 288 intervals, named 'edf'
     max_size = len(data['hourly']['data'])
-    index_size = 12*max_size
-    index = np.arange(0, index_size)
+    start_time = data['hourly']['data'][0]['time']
+    finish_time = data['hourly']['data'][max_size - 1]['time'] + 3600
+    interval_step = step * 60
+    time_series = np.arange(start_time, finish_time, interval_step)
+    index = np.arange(0, len(time_series))
     columns = ['outTemperature',
                'dewPoint',
                'cloudCover',
@@ -67,11 +70,6 @@ def interpolate_data(data, step):
                'visibility',
                'uvIndex']
     edf = pd.DataFrame(np.nan, index=index, columns=columns)
-    max_size= len(data['hourly']['data'])  # Cannot use 24 because of daylight savings time exceptions
-    start_time = data['hourly']['data'][0]['time']
-    finish_time = data['hourly']['data'][max_size-1]['time'] + 3600
-    interval_step = step*60
-    time_series = np.arange(start_time, finish_time, interval_step)
     edf.insert(loc=0, column='time', value=time_series)
     edf.set_index('time', inplace=True, drop=True)
 
