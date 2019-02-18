@@ -10,6 +10,7 @@ from datetime import datetime as dt
 FIELDS = "time,dia,hora,temperatura,ligado,outTemperature,dewPoint,cloudCover,precipProbability,precipIntensity," \
          "visibility,uvIndex"
 save_interval = 10000
+dbName = "out.csv"
 
 
 def main():
@@ -55,7 +56,9 @@ def interpolate_data(data, step):
      Returns a pandas dataframe for a single day, with step interval in minutes """
 
     # Create empty dataframe with 288 intervals, named 'edf'
-    index = np.arange(0, 288)
+    max_size = len(data['hourly']['data'])
+    index_size = 12*max_size
+    index = np.arange(0, index_size)
     columns = ['outTemperature',
                'dewPoint',
                'cloudCover',
@@ -64,15 +67,16 @@ def interpolate_data(data, step):
                'visibility',
                'uvIndex']
     edf = pd.DataFrame(np.nan, index=index, columns=columns)
+    max_size= len(data['hourly']['data'])  # Cannot use 24 because of daylight savings time exceptions
     start_time = data['hourly']['data'][0]['time']
-    finish_time = data['hourly']['data'][23]['time'] + 3600
+    finish_time = data['hourly']['data'][max_size-1]['time'] + 3600
     interval_step = step*60
     time_series = np.arange(start_time, finish_time, interval_step)
     edf.insert(loc=0, column='time', value=time_series)
     edf.set_index('time', inplace=True, drop=True)
 
     # Create dataframe from fetched data with 24 intervals, named 'rdf'
-    index = np.arange(0, 24)
+    index = np.arange(0, max_size)
     columns = ['time',
                'outTemperature',
                'dewPoint',
@@ -83,7 +87,7 @@ def interpolate_data(data, step):
                'uvIndex']
     rdf = pd.DataFrame(np.nan, index=index, columns=columns)
     # Not all data exists in all data points. We have to check each individually. Interpolation helps with missing data
-    for i in range(0, 24):
+    for i in range(0, max_size):
         d = data['hourly']['data'][i]
         if 'time' in d:
             rdf.at[i, 'time'] = d['time']
@@ -121,15 +125,15 @@ def save(dfa, data_set, time_series):
     # Join both data sets and export to file
     final_df = ndfa.join(data_set)
 
-    if not os.path.isfile("darkskyDB.csv"):
-        with open("darkskyDB.csv", 'a') as f:
+    if not os.path.isfile(dbName):
+        with open(dbName, 'a') as f:
             f.write(FIELDS)
-    with open("darkskyDB.csv") as datafile:
+    with open(dbName) as datafile:
         db = pd.read_csv(datafile, index_col=0)
         db = db.append(final_df)
         db.sort_index(inplace=True)
-        db.drop_duplicates(['hora'], inplace=True)
-        db.to_csv("darkskyDB.csv")
+        db.drop_duplicates(subset=['hora', 'dia'], inplace=True)
+        db.to_csv(dbName)
 
 
 def to_celsius(temperature):
